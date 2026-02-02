@@ -5,6 +5,9 @@
 import streamlit as st
 import pandas as pd
 
+# ------------------------------
+# Page Config
+# ------------------------------
 st.set_page_config(
     page_title="DM Flow Dashboard",
     layout="wide"
@@ -68,15 +71,26 @@ if missing:
     st.stop()
 
 # ------------------------------
-# Data Cleaning
+# Data Cleaning & Normalization
 # ------------------------------
+df["Numb"] = df["Numb"].astype(str).str.strip()
 df["Attempt"] = df["Attempt"].fillna(0).astype(int)
 df["Campaign"] = df["Campaign"].astype(str).str.strip()
-df["Numb"] = df["Numb"].astype(str)
+df["Bucket"] = df["Bucket"].astype(str).str.strip()
 
-# Normalize text values
-df["1-Con/Non Con"] = df["1-Con/Non Con"].str.strip().str.title()
-df["2-Con/Non Con"] = df["2-Con/Non Con"].str.strip().str.title()
+df["1-Con/Non Con"] = (
+    df["1-Con/Non Con"]
+    .astype(str)
+    .str.strip()
+    .str.title()
+)
+
+df["2-Con/Non Con"] = (
+    df["2-Con/Non Con"]
+    .astype(str)
+    .str.strip()
+    .str.title()
+)
 
 # ------------------------------
 # Filters
@@ -96,11 +110,13 @@ df = df[df["Campaign"] == campaign]
 first_attempt = df[df["Attempt"] == 1]
 
 total_1 = first_attempt["Numb"].nunique()
+
 connect_1 = first_attempt[
     first_attempt["1-Con/Non Con"] == "Connect"
 ]["Numb"].nunique()
 
 non_connect_1 = total_1 - connect_1
+
 conn_pct_1 = round((connect_1 / total_1) * 100, 2) if total_1 else 0
 
 # ------------------------------
@@ -112,6 +128,7 @@ second_attempt = df[
 ]
 
 total_2 = second_attempt["Numb"].nunique()
+
 connect_2 = second_attempt[
     second_attempt["2-Con/Non Con"] == "Connect"
 ]["Numb"].nunique()
@@ -119,13 +136,28 @@ connect_2 = second_attempt[
 conn_pct_2 = round((connect_2 / total_2) * 100, 2) if total_2 else 0
 
 # ------------------------------
-# Attempt Bucket for Final Non-Connect
+# Attempt Bucket – Final Non Connect
 # ------------------------------
+bucket_order = {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    ">=3": 3
+}
+
 bucket_df = (
     df.groupby("Bucket")["Numb"]
     .nunique()
     .reset_index()
-    .sort_values("Bucket")
+)
+
+bucket_df["Bucket"] = bucket_df["Bucket"].astype(str)
+bucket_df["Bucket_Order"] = bucket_df["Bucket"].map(bucket_order)
+
+bucket_df = (
+    bucket_df
+    .sort_values("Bucket_Order")
+    .drop(columns="Bucket_Order")
 )
 
 # ------------------------------
@@ -159,7 +191,7 @@ st.bar_chart(
 )
 
 # ------------------------------
-# Raw Data
+# Raw Data (Debug / MIS View)
 # ------------------------------
 with st.expander("View Filtered Raw Data"):
     st.dataframe(df)
