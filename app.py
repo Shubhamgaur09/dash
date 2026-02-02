@@ -1,6 +1,6 @@
-# ==============================
-# Dialer Connectivity Dashboard
-# ==============================
+# =====================================
+# Dialer Connectivity Dashboard (DM)
+# =====================================
 
 import streamlit as st
 import pandas as pd
@@ -54,9 +54,12 @@ df = pd.read_excel(uploaded_file)
 # Required Columns Check
 # ------------------------------
 required_cols = [
-    "Leadid", "Attempt", "Campaign",
-    "1-Con/Non Con", "2-Con/Non Con",
-    "Status"
+    "Numb",
+    "Attempt",
+    "Campaign",
+    "1-Con/Non Con",
+    "2-Con/Non Con",
+    "Bucket"
 ]
 
 missing = [c for c in required_cols if c not in df.columns]
@@ -69,11 +72,11 @@ if missing:
 # ------------------------------
 df["Attempt"] = df["Attempt"].fillna(0).astype(int)
 df["Campaign"] = df["Campaign"].astype(str).str.strip()
+df["Numb"] = df["Numb"].astype(str)
 
-# Attempt Bucket
-df["Attempt Bucket"] = df["Attempt"].apply(
-    lambda x: ">=3" if x >= 3 else str(x)
-)
+# Normalize text values
+df["1-Con/Non Con"] = df["1-Con/Non Con"].str.strip().str.title()
+df["2-Con/Non Con"] = df["2-Con/Non Con"].str.strip().str.title()
 
 # ------------------------------
 # Filters
@@ -82,7 +85,7 @@ st.sidebar.header("Filters")
 
 campaign = st.sidebar.selectbox(
     "Campaign",
-    sorted(df["Campaign"].dropna().unique())
+    sorted(df["Campaign"].unique())
 )
 
 df = df[df["Campaign"] == campaign]
@@ -92,10 +95,10 @@ df = df[df["Campaign"] == campaign]
 # ------------------------------
 first_attempt = df[df["Attempt"] == 1]
 
-total_1 = first_attempt["Leadid"].nunique()
+total_1 = first_attempt["Numb"].nunique()
 connect_1 = first_attempt[
     first_attempt["1-Con/Non Con"] == "Connect"
-]["Leadid"].nunique()
+]["Numb"].nunique()
 
 non_connect_1 = total_1 - connect_1
 conn_pct_1 = round((connect_1 / total_1) * 100, 2) if total_1 else 0
@@ -108,22 +111,21 @@ second_attempt = df[
     (df["1-Con/Non Con"] == "Non Connect")
 ]
 
-total_2 = second_attempt["Leadid"].nunique()
+total_2 = second_attempt["Numb"].nunique()
 connect_2 = second_attempt[
     second_attempt["2-Con/Non Con"] == "Connect"
-]["Leadid"].nunique()
+]["Numb"].nunique()
 
 conn_pct_2 = round((connect_2 / total_2) * 100, 2) if total_2 else 0
 
 # ------------------------------
-# Final Non-Connect Bucket
+# Attempt Bucket for Final Non-Connect
 # ------------------------------
-final_nc = df[df["Status"].str.lower() == "pending"]
-bucket_counts = (
-    final_nc.groupby("Attempt Bucket")["Leadid"]
+bucket_df = (
+    df.groupby("Bucket")["Numb"]
     .nunique()
     .reset_index()
-    .sort_values("Attempt Bucket")
+    .sort_values("Bucket")
 )
 
 # ------------------------------
@@ -151,13 +153,13 @@ st.divider()
 st.subheader("3️⃣ Attempt Bucket – Final Non Connect")
 
 st.bar_chart(
-    data=bucket_counts,
-    x="Attempt Bucket",
-    y="Leadid"
+    data=bucket_df,
+    x="Bucket",
+    y="Numb"
 )
 
 # ------------------------------
-# Raw Data (Optional)
+# Raw Data
 # ------------------------------
 with st.expander("View Filtered Raw Data"):
     st.dataframe(df)
